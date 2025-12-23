@@ -1,7 +1,7 @@
 # Contributor: Guy Godfroy <guy.godfroy@gugod.fr>
 # Maintainer: Guy Godfroy <guy.godfroy@gugod.fr>
 
-# TODO: build and package the desktop version too
+# TODO: build and package the desktop version too.
 
 pkgname=goose
 pkgver=1.17.0
