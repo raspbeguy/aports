@@ -12,6 +12,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Important: fetch all history to compare changes
+
+      - name: Get changed files
+        id: changed-files
+        uses: tj-actions/changed-files@v47.0.1
+        with:
+          dir_names: true
+          separator: ','
+          # Only look for changes in directories containing an APKBUILD
+          files: "**/APKBUILD"
 
       - name: Build and Publish
         uses: ivanvc/abuild-releaser-action@v1.2.0
@@ -20,3 +31,4 @@ jobs:
           rsa_private_key: ${{ secrets.APORT_PRIVATE_KEY }}
           rsa_public_key: ${{ secrets.APORT_PUBLIC_KEY }}
           generate_index_pages: true
+          package_dirs: ${{ steps.changed-files.outputs.all_changed_files }}
