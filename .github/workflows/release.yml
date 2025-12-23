@@ -1,0 +1,21 @@
+name: Release Alpine Packages
+on:
+  push:
+    branches:
+      - main
+permissions:
+  contents: write
+  pages: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and Publish
+        uses: ivanvc/abuild-releaser-action@v1.2.0
+        with:
+          author: "Guy Godfroy <guy.godfroy@gugod.fr>"
+          rsa_private_key: ${{ secrets.APORT_PRIVATE_KEY }}
+          rsa_public_key: ${{ secrets.APORT_PUBLIC_KEY }}

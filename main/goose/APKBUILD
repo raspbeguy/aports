@@ -1,0 +1,41 @@
+# Contributor: Guy Godfroy <guy.godfroy@gugod.fr>
+# Maintainer: Guy Godfroy <guy.godfroy@gugod.fr>
+
+# TODO: build and package the desktop version too
+
+pkgname=goose
+pkgver=1.17.0
+pkgrel=0
+pkgdesc="open source, extensible AI agent"
+url="https://block.github.io/goose/"
+# loongarch64: use of unstable library feature `stdarch_loongarch`
+arch="all !loongarch64"
+license="Apache-2.0"
+makedepends="cargo cargo-auditable libxcb-dev cmake ninja clang-dev rustfmt"
+source="$pkgname-$pkgver.tar.gz::https://github.com/block/goose/archive/refs/tags/v$pkgver.tar.gz"
+options="net !check" #net: rust deps / !check: apparently needs some private token to test
+
+prepare() {
+	default_prepare
+
+	cargo fetch --target="$CHOST" --locked
+}
+
+build() {
+	export CARGO_PROFILE_RELEASE_LTO=off
+	cargo auditable build --frozen --release
+}
+
+check() {
+	export GOOSE_DISABLE_KEYRING=1
+	cargo test --frozen
+}
+
+package() {
+	install -m755 -D target/release/goose $pkgdir/usr/bin/goose
+	install -m755 -D target/release/goosed $pkgdir/usr/bin/goosed
+}
+
+sha512sums="
+1efe47b2cd0747b34304d6e62d0b130c9b883d8a68c9624f01851d48d23f19f3ea1871798a00b89117a690222b7102a20662af3f675089ee60ed5642648e6471  goose-1.17.0.tar.gz
+"

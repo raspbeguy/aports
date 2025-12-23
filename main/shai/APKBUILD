@@ -1,0 +1,37 @@
+# Contributor: Guy Godfroy <guy.godfroy@gugod.fr>
+# Maintainer: Guy Godfroy <guy.godfroy@gugod.fr>
+pkgname=shai
+pkgver=0.1.10
+pkgrel=0
+pkgdesc="coding agent written in rust"
+url="https://github.com/ovh/shai"
+# loongarch64 and s390x: use of cli-clipboard which uses old version of nix
+arch="all !loongarch64 !s390x"
+license="Apache-2.0"
+makedepends="cargo cargo-auditable perl openssl-dev"
+source="$pkgname-$pkgver.tar.gz::https://github.com/ovh/shai/archive/refs/tags/v$pkgver.tar.gz"
+options="net !check" # needs an ai endpoint
+
+prepare() {
+	default_prepare
+
+	cargo fetch --target="$CHOST" --locked
+}
+
+build() {
+	export OPENSSL_NO_VENDOR=true
+	cargo auditable build --frozen --release
+}
+
+check() {
+	cargo test --frozen
+}
+
+package() {
+	install -Dm755 target/release/shai "$pkgdir"/usr/bin/shai
+	install -Dm755 target/release/libshai_macros.so "$pkgdir"/usr/lib/libshai_macros.so
+}
+
+sha512sums="
+1133add2a218cfef8527db06d53d95763353e610a5d03a05ff357aadacbfffb929f6666a127e92e58146b0d326b248bf5f3739b04cebdcb15f370a8cc5c79070  shai-0.1.10.tar.gz
+"
