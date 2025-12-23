@@ -19,3 +19,4 @@ jobs:
           author: "Guy Godfroy <guy.godfroy@gugod.fr>"
           rsa_private_key: ${{ secrets.APORT_PRIVATE_KEY }}
           rsa_public_key: ${{ secrets.APORT_PUBLIC_KEY }}
+          generate_index_pages: true
