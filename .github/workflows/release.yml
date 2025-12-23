@@ -50,6 +50,7 @@ jobs:
 
       - name: Build Aports
         run: |
+          git config --global --add safe.directory /github/workspace
           # Detect changed directories containing APKBUILDs
           git config --global --add safe.directory /github/workspace
           CHANGED_DIRS=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep 'APKBUILD' | xargs -I {} dirname {} | sort -u)
