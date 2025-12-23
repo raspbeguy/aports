@@ -1,74 +1,82 @@
-name: Release Alpine Packages
+name: Build and Host Alpine Repo
 on:
   push:
     branches:
       - master
+
 permissions:
-  contents: write
+  contents: read
   pages: write
-  actions: read
   id-token: write
+  actions: read
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    container: 
+      image: alpine:latest
+      options: --user root
+    
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Important: fetch all history to compare changes
+          fetch-depth: 0
 
-      - name: Setup Alpine Linux
-        uses: jirutka/setup-alpine@v1
-        with:
-          packages: >
-            alpine-sdk
-            apk-tools
+      - name: Install Tools
+        run: apk add --no-cache alpine-sdk doas coreutils
 
-      - name: Download previous repository
-        uses: dawidd6/action-download-artifact@v11
-        continue-on-error: true # Crucial for the very first run
+      - name: Setup Builder User
+        run: |
+          adduser -D builder
+          addgroup builder abuild
+          echo "permit nopass :abuild" > /etc/doas.conf
+          chown root:root /etc/doas.conf
+          chmod 0400 /etc/doas.conf
+          mkdir -p /home/builder/.abuild
+          echo "${{ secrets.APORT_PRIVATE_KEY }}" > /home/builder/.abuild/privkey.rsa
+          echo "${{ secrets.APORT_PUBLIC_KEY }}" > /home/builder/.abuild/privkey.rsa.pub
+          chown -R builder:builder /home/builder/.abuild
+          echo "PACKAGER_PRIVKEY=\"/home/builder/.abuild/privkey.rsa\"" > /home/builder/.abuild/abuild.conf
+
+      - name: Download Previous Repo
+        uses: dawidd6/action-download-artifact@v9
+        continue-on-error: true
         with:
-          name: github-pages # The default name used by upload-pages-artifact
+          name: github-pages
           latest: true
           path: dist/
+          if_no_artifact_found: ignore
 
-      - name: Get changed files
-        id: changed-files
-        uses: tj-actions/changed-files@v47.0.1
-        with:
-          dir_names: true
-          separator: ','
-          # Only look for changes in directories containing an APKBUILD
-          files: "**/APKBUILD"
-
-      - name: Build Alpine Packages
-        uses: ivanvc/abuild-releaser-action@v1.2.0
-        with:
-          destdir: 'dist/'
-          author: "Guy Godfroy <guy.godfroy@gugod.fr>"
-          rsa_private_key: ${{ secrets.APORT_PRIVATE_KEY }}
-          rsa_public_key: ${{ secrets.APORT_PUBLIC_KEY }}
-          package_dirs: ${{ steps.changed-files.outputs.all_changed_files }}
-          publish: false
-          generate_index_pages: true
-
-      - name: Update Alpine Index
+      - name: Build Aports
         run: |
-          find dist -type d -name "x86_64" | while read dir; do
-            cd "$dir"
-            apk index -o APKINDEX.tar.gz *.apk
-            abuild-sign APKINDEX.tar.gz
-            cd -
+          # Detect changed directories containing APKBUILDs
+          git config --global --add safe.directory /github/workspace
+          CHANGED_DIRS=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep 'APKBUILD' | xargs -I {} dirname {} | sort -u)
+          
+          mkdir -p dist/edge/main/x86_64
+          
+          for dir in $CHANGED_DIRS; do
+            echo "Building $dir..."
+            chown -R builder:builder .
+            # Build and output to our distribution folder
+            su builder -c "cd $dir && abuild -r -P /github/workspace/dist/edge/main"
           done
-        shell: alpine.sh --root {0}
+
+      - name: Update Repository Index
+        run: |
+          cd dist/edge/main/x86_64
+          apk index -o APKINDEX.tar.gz *.apk
+          su builder -c "abuild-sign /github/workspace/dist/edge/main/x86_64/APKINDEX.tar.gz"
+
+      - name: Upload for Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist/
 
   deploy:
     needs: build
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Deploy to GitHub Pages
-        id: deployment
         uses: actions/deploy-pages@v4
