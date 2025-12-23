@@ -3,7 +3,7 @@
 pkgname=shai
 pkgver=0.1.10
 pkgrel=0
-pkgdesc="coding agent written in rust"
+pkgdesc="Coding agent written in rust"
 url="https://github.com/ovh/shai"
 # loongarch64 and s390x: use of cli-clipboard which uses old version of nix
 arch="all !loongarch64 !s390x"

@@ -6,14 +6,31 @@ on:
 permissions:
   contents: write
   pages: write
+  actions: read
+  id-token: write
 
 jobs:
-  release:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0 # Important: fetch all history to compare changes
+
+      - name: Setup Alpine Linux
+        uses: jirutka/setup-alpine@v1
+        with:
+          packages: >
+            alpine-sdk
+            apk-tools
+
+      - name: Download previous repository
+        uses: dawidd6/action-download-artifact@v11
+        continue-on-error: true # Crucial for the very first run
+        with:
+          name: github-pages # The default name used by upload-pages-artifact
+          latest: true
+          path: dist/
 
       - name: Get changed files
         id: changed-files
@@ -24,11 +41,34 @@ jobs:
           # Only look for changes in directories containing an APKBUILD
           files: "**/APKBUILD"
 
-      - name: Build and Publish
+      - name: Build Alpine Packages
         uses: ivanvc/abuild-releaser-action@v1.2.0
         with:
+          destdir: 'dist/'
           author: "Guy Godfroy <guy.godfroy@gugod.fr>"
           rsa_private_key: ${{ secrets.APORT_PRIVATE_KEY }}
           rsa_public_key: ${{ secrets.APORT_PUBLIC_KEY }}
-          generate_index_pages: true
           package_dirs: ${{ steps.changed-files.outputs.all_changed_files }}
+          publish: false
+          generate_index_pages: true
+
+      - name: Update Alpine Index
+        run: |
+          find dist -type d -name "x86_64" | while read dir; do
+            cd "$dir"
+            apk index -o APKINDEX.tar.gz *.apk
+            abuild-sign APKINDEX.tar.gz
+            cd -
+          done
+        shell: alpine.sh --root {0}
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
